@@ -341,11 +341,12 @@ class DistributorApp:
         index = self.stats_text.index(f"@{event.x},{event.y}")
         line = self.stats_text.get(f"{index} linestart", f"{index} lineend").strip()
 
-        # интересуют только строки вида "• C:/..."
         if not line.startswith("• "):
             return
 
-        path = line.replace("• ", "").strip()
+        raw = line.split(":", 1)[-1].strip()
+        path = raw.strip().strip('"').strip("'").replace("\ufeff", "")
+
         if os.path.exists(path):
             os.startfile(path)
         else:
@@ -384,8 +385,19 @@ class DistributorApp:
 
         if conflicts:
             self.stats_text.insert(tk.END, "\n\nФайлы с конфликтами:\n")
-            for path in conflicts:
-                self.stats_text.insert(tk.END, f"• {path}\n")
+            for item in stats.get("conflict_files", []):
+                if isinstance(item, tuple) and len(item) == 2:
+                    old_path, new_path = item
+                    for label, path in [("Исходный", old_path), ("Конфликт", new_path)]:
+                        start = self.stats_text.index(tk.END)
+                        self.stats_text.insert(tk.END, f"• {label}: {path}\n")
+                        end = self.stats_text.index(tk.END)
+                        self.stats_text.tag_add("link", start, end)
+                else:
+                    start = self.stats_text.index(tk.END)
+                    self.stats_text.insert(tk.END, f"• {item}\n")
+                    end = self.stats_text.index(tk.END)
+                    self.stats_text.tag_add("link", start, end)
 
     def _progress_callback(self, processed: int, total: int, current_file: str):
         self.root.after(0, self.update_progress, processed, total, current_file)

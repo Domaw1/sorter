@@ -41,8 +41,6 @@ def build_target_path(category, section, subfolder, revision, file_type):
 
     return base
 
-
-
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
 
@@ -75,12 +73,12 @@ def handle_duplicates(dst_file, src_file):
     dst_crc = crc32_of_file(dst_file)
 
     if src_crc == dst_crc:
-        return "duplicate", src_crc, dst_crc, dst_file
+        return "duplicate", src_crc, dst_crc, dst_file, None
 
     base, ext = os.path.splitext(dst_file)
     new_dst = base + "_conflict" + ext
     logging.error("Name conflict: " + new_dst)
-    return "conflict", src_crc, dst_crc, new_dst
+    return "conflict", src_crc, dst_crc, dst_file, new_dst
 
 
 def process_file(folder_path, filename, category, report_rows):
@@ -89,7 +87,7 @@ def process_file(folder_path, filename, category, report_rows):
     # 1. Проверка шаблона
     if not match_pattern(filename, config.NAME_PATTERN):
         logging.info(f"Пропуск: {filename} — не соответствует шаблону")
-        return "skipped_pattern", filename
+        return "skipped_pattern", filename, None
 
     # 2. Разбор имени
     section = extract_section_code(filename)
@@ -99,25 +97,25 @@ def process_file(folder_path, filename, category, report_rows):
 
     if section is None:
         logging.error(f"Пропуск: {filename} — раздел не найден")
-        return "error", filename
+        return "error", filename, None
 
     if subfolder is None:
         logging.error(f"Пропуск: {filename} — подпапка не найдена")
-        return "error", filename
+        return "error", filename, None
 
     if ext is None:
         logging.error(f"Пропуск: {filename} — расширение не найдено")
-        return "error", filename
+        return "error", filename, None
 
     ext = ext.lower()
     if ext not in config.ALLOWED_EXTENSIONS:
         logging.warning(f"Пропуск: {filename} — недопустимое расширение {ext}")
-        return "warning", filename
+        return "warning", filename, None
 
     file_type = config.FILE_TYPE_MAP.get(ext)
     if not file_type:
         logging.warning(f"Пропуск: {filename} — неизвестный тип файла")
-        return "warning", filename
+        return "warning", filename, None
 
     # 3. Построение пути
     target_dir = build_target_path(category, section, subfolder, revision, file_type)
@@ -130,7 +128,12 @@ def process_file(folder_path, filename, category, report_rows):
     dst_crc = None
 
     if os.path.exists(dst_file):
-        status, src_crc, dst_crc, dst_file = handle_duplicates(dst_file, src_file)
+        status, src_crc, dst_crc, old_dst, new_dst = handle_duplicates(dst_file, src_file)
+        if status == "conflict":
+            dst_file = new_dst
+    else:
+        old_dst = None
+        new_dst = None
 
     # 5. Копирование
     if status in ("copied", "conflict"):
@@ -157,7 +160,10 @@ def process_file(folder_path, filename, category, report_rows):
         status
     ])
 
-    return status, dst_file
+    if status == "conflict":
+        return status, old_dst, new_dst
+    else:
+        return status, dst_file, None
 
 def main(progress_callback=None, stats_callback=None):
     setup_logger()
@@ -195,7 +201,7 @@ def main(progress_callback=None, stats_callback=None):
 
         # status, fname = process_file(folder_path, filename, category, report_rows)
 
-        status, fname = process_file(folder_path, filename, category, report_rows)
+        status, p1, p2 = process_file(folder_path, filename, category, report_rows)
 
         stats["processed"] += 1
 
@@ -207,14 +213,14 @@ def main(progress_callback=None, stats_callback=None):
             stats["duplicates"] += 1
         elif status == "conflict":
             stats["conflicts"] += 1
-            stats["conflict_files"].append(fname)
+            stats["conflict_files"].append((p1, p2))
         elif status == "copied":
             stats["copied"] += 1
 
         processed += 1
 
         if progress_callback:
-            progress_callback(processed, total_files, fname)
+            progress_callback(processed, total_files, filename)
 
     # Отчёт
     report_name = f"report_{datetime.now():%Y-%m-%d}.csv"
