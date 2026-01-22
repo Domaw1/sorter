@@ -51,7 +51,10 @@ class DistributorApp:
 
     def _build_ui(self):
         # === Глобальный скроллбар ===
-        container = ttk.Frame(self.root)
+        outer = ttk.Frame(self.root)
+        outer.pack(fill=tk.BOTH, expand=True)
+
+        container = ttk.Frame(outer)
         container.pack(fill=tk.BOTH, expand=True)
 
         canvas = tk.Canvas(container, highlightthickness=0)
@@ -140,11 +143,19 @@ class DistributorApp:
         self.current_file_label = ttk.Label(progress_frame, text="Текущий файл: —", foreground="gray")
         self.current_file_label.pack(anchor="w", pady=(2, 0))
 
-        stats_frame = ttk.LabelFrame(main, text="Статистика", padding=10)
-        stats_frame.pack(fill=tk.X, pady=(0, 10))
+        # ----
+        pane = ttk.Panedwindow(main, orient="vertical")
+        pane.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        self.stats_text = tk.Text(stats_frame, height=8, wrap="word")
-        self.stats_text.pack(fill=tk.X)
+        stats_frame = ttk.LabelFrame(pane, text="Статистика", padding=10)
+        pane.add(stats_frame, weight=1)
+
+        self.stats_text = tk.Text(stats_frame, height=7, wrap="word")
+        self.stats_text.pack(fill=tk.BOTH, expand=True)
+
+        self.stats_text.bind("<Enter>", lambda e: self._bind_stats_scroll())
+        self.stats_text.bind("<Leave>", lambda e: self._unbind_stats_scroll())
+        # ____
 
         # запрет ввода
         # self.stats_text.bind("<Key>", lambda e: "break")
@@ -164,8 +175,8 @@ class DistributorApp:
         log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.status_var = tk.StringVar(value="Готов к работе")
-        status_bar = ttk.Label(main, textvariable=self.status_var, relief=tk.SUNKEN, anchor="w")
-        status_bar.pack(fill=tk.X, pady=(5, 0))
+        status_bar = ttk.Label(outer, textvariable=self.status_var, relief=tk.SUNKEN, anchor="w")
+        status_bar.pack(fill=tk.X, side=tk.BOTTOM)
 
         self.text_handler = TextHandler(self.log_text)
 
@@ -173,11 +184,27 @@ class DistributorApp:
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
         # Windows и MacOS
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        self.canvas = canvas
+        self.root.bind_all("<MouseWheel>", self._global_mousewheel)
 
         # Linux (если нужно)
         canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
         canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+
+    def _bind_stats_scroll(self):
+        self.root.unbind_all("<MouseWheel>")
+        self.stats_text.bind_all("<MouseWheel>", self._stats_mousewheel)
+
+    def _unbind_stats_scroll(self):
+        self.stats_text.unbind_all("<MouseWheel>")
+        self.root.bind_all("<MouseWheel>", self._global_mousewheel)
+
+    def _stats_mousewheel(self, event):
+        self.stats_text.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        return "break"
+
+    def _global_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def _choose_folder(self):
         p = filedialog.askdirectory()
@@ -391,6 +418,8 @@ class DistributorApp:
 
 def main():
     root = tk.Tk()
+    root.iconbitmap("Icon.ico")
+
     app = DistributorApp(root)
     root.mainloop()
 
