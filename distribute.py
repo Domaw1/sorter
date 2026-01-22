@@ -1,10 +1,8 @@
 import csv
-import os
 import shutil
 import logging
 from datetime import datetime
 
-import config
 
 from utils.file_parser import (
     extract_project_code,
@@ -17,8 +15,6 @@ from utils.file_parser import (
 
 from utils.crc import crc32_of_file
 from utils.logger import setup_logger
-from utils.report import write_report
-
 
 import os
 import config
