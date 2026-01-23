@@ -7,6 +7,8 @@ import datetime
 import config
 import distribute
 
+
+
 class TextHandler:
     def __init__(self, text_widget: tk.Text):
         self.text_widget = text_widget
