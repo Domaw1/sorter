@@ -27,7 +27,7 @@ def match_pattern(filename, pattern):
 
 def extract_section_code(filename):
     # Ищем 0407.000
-    return extract_with_regex(filename, r'\d{4}\.\d{3}', "Section code")
+    return extract_with_regex(filename, r'\d{4}[\. ]\d{3}', "Section code")
 
 def extract_project_code(folder_name):
     parts = folder_name.split("-")
@@ -67,11 +67,36 @@ def extract_subfolder_code(filename):
     return None
 
 
+# def extract_revision(filename):
+#     reg = re.search(r'_r([A-Za-zА-Яа-яЁё0-9]+)', filename)
+#     if reg:
+#         return reg.group(1)
+#     logging.warning(f"Revision not found in: {filename}")
+#     return None
+
 def extract_revision(filename):
-    # Ищем _rC, _rA, _r01
-    reg = re.search(r'_r([A-Za-z0-9]+)', filename)
-    if reg:
-        return reg.group(1)
+    """
+    Извлекает ревизию из имени файла.
+    Поддерживает:
+    - rXX
+    - r XX
+    - r_XX
+    - r-XX
+    - r.XX
+    Игнорирует хвосты типа _RU, .zip и т.п.
+    """
+    name, _ = os.path.splitext(filename)
+
+    # Ищем rXX с любым разделителем, но захватываем только саму ревизию
+    match = re.search(r'[_\-\.\s]r[_\-\.\s]?([A-Za-zА-Яа-яЁё0-9]{1,3})(?=[_\-\.\s]|$)', name)
+    if match:
+        return match.group(1)
+
+    # Альтернатива: Рев. XX
+    match = re.search(r'Рев[.\s_-]+([A-Za-zА-Яа-яЁё0-9]{1,3})(?=[_\-\.\s]|$)', name)
+    if match:
+        return match.group(1)
+
     logging.warning(f"Revision not found in: {filename}")
     return None
 

@@ -20,22 +20,15 @@ import os
 import config
 
 def build_target_path(category, section, subfolder, revision, file_type):
-    # Базовая папка — та, что выбрал пользователь
-    base = os.path.join(
-        config.TARGET_DIR,
-        category,
-        section,
-        subfolder
-    )
+    base = os.path.join(config.TARGET_DIR, category, section, subfolder)
 
-    # Если есть ревизия — добавляем её
     if revision:
-        base = os.path.join(base, f"Рев. {revision}")
-
-    # Папка типа файла (pdf / ред.формат)
-    base = os.path.join(base, file_type)
+        base = os.path.join(base, f"Рев. {revision}", file_type)
+    else:
+        base = os.path.join(base, file_type)
 
     return base
+
 
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)

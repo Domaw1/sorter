@@ -6,7 +6,7 @@ import threading
 import datetime
 import config
 import distribute
-
+from utils.logger import clear_log_files
 
 
 class TextHandler:
@@ -275,6 +275,7 @@ class DistributorApp:
 
     def _clear_log(self):
         self.log_text.delete("1.0", tk.END)
+        clear_log_files()
         self._log("Лог очищен")
 
     def _save_report(self):
