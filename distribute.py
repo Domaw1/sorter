@@ -30,7 +30,7 @@ def build_target_path(category, section, subfolder, revision, file_type):
 
     # Если есть ревизия — добавляем её
     if revision:
-        base = os.path.join(base, "Ревизии", revision)
+        base = os.path.join(base, f"Рев. {revision}")
 
     # Папка типа файла (pdf / ред.формат)
     base = os.path.join(base, file_type)
@@ -194,9 +194,6 @@ def main(progress_callback=None, stats_callback=None):
     for folder_path, filename in all_files:
         project_code = extract_project_code(os.path.basename(folder_path))
         category = config.PROJECT_MAP.get(project_code, config.DEFAULT_CATEGORY)
-
-        # status, fname = process_file(folder_path, filename, category, report_rows)
-
         status, p1, p2 = process_file(folder_path, filename, category, report_rows)
 
         stats["processed"] += 1
