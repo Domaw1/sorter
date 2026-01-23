@@ -198,8 +198,14 @@ def main(progress_callback=None, stats_callback=None):
     #         all_files.append((folder_path, f))
 
     processed = 0
+    valid_files = [
+        (folder_path, filename)
+        for folder_path, filename in all_files
+        if extract_project_code(Path(folder_path).parent.name) is not None
+    ]
+    total_files = len(valid_files)
 
-    for folder_path, filename in all_files:
+    for folder_path, filename in valid_files:
         # project_code = extract_project_code(os.path.basename(folder_path))
         project_code = extract_project_code(Path(folder_path).parent.name)
         if project_code is None:
