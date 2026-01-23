@@ -15,3 +15,21 @@ def setup_logger():
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(logging.Formatter("%(asctime)s — %(levelname)s — %(message)s"))
     logging.getLogger().addHandler(error_handler)
+
+def clear_log_files():
+    log_dir = "logs"
+    app_log = os.path.join(log_dir, "app.log")
+    err_log = os.path.join(log_dir, "errors.log")
+
+    # Закрываем все FileHandler, чтобы можно было очистить файлы
+    for handler in logging.root.handlers[:]:
+        if isinstance(handler, logging.FileHandler):
+            handler.close()
+            logging.root.removeHandler(handler)
+
+    # Очищаем файлы
+    open(app_log, "w", encoding="utf-8").close()
+    open(err_log, "w", encoding="utf-8").close()
+
+    # Перезапускаем логгер
+    setup_logger()
