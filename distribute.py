@@ -2,7 +2,7 @@ import csv
 import shutil
 import logging
 from datetime import datetime
-
+from pathlib import Path
 
 from utils.file_parser import (
     extract_project_code,
@@ -104,11 +104,11 @@ def process_file(folder_path, filename, category, report_rows):
         return "error", filename, None
 
     ext = ext.lower()
-    if ext not in config.ALLOWED_EXTENSIONS:
+    if ext in config.BLACK_LIST_EXTENSIONS:
         logging.warning(f"Пропуск: {filename} — недопустимое расширение {ext}")
         return "warning", filename, None
 
-    file_type = config.FILE_TYPE_MAP.get(ext)
+    file_type = config.FILE_TYPE_MAP.get(ext, "ред.формат")
     if not file_type:
         logging.warning(f"Пропуск: {filename} — неизвестный тип файла")
         return "warning", filename, None
@@ -161,6 +161,15 @@ def process_file(folder_path, filename, category, report_rows):
     else:
         return status, dst_file, None
 
+def collect_all_files(root_folder):
+    for dirpath, _, filenames in os.walk(root_folder):
+        # если путь содержит ADRC — пропускаем
+        if "ADRC-GPNG-GEP-RD" in dirpath:
+            continue
+
+        for filename in filenames:
+            yield dirpath, filename
+
 def main(progress_callback=None, stats_callback=None):
     setup_logger()
     report_rows = []
@@ -177,22 +186,25 @@ def main(progress_callback=None, stats_callback=None):
     }
 
     # Подсчёт общего количества файлов
-    all_files = []
-
-    for folder in os.listdir(config.SOURCE_DIR):
-        folder_path = os.path.join(config.SOURCE_DIR, folder)
-        if not os.path.isdir(folder_path):
-            continue
-
-        for f in os.listdir(folder_path):
-            all_files.append((folder_path, f))
-
+    all_files = list(collect_all_files(config.SOURCE_DIR))
     total_files = len(all_files)
+
+    # for folder in os.listdir(config.SOURCE_DIR):
+    #     folder_path = os.path.join(config.SOURCE_DIR, folder)
+    #     if not os.path.isdir(folder_path):
+    #         continue
+    #
+    #     for f in os.listdir(folder_path):
+    #         all_files.append((folder_path, f))
 
     processed = 0
 
     for folder_path, filename in all_files:
-        project_code = extract_project_code(os.path.basename(folder_path))
+        # project_code = extract_project_code(os.path.basename(folder_path))
+        project_code = extract_project_code(Path(folder_path).parent.name)
+        if project_code is None:
+            continue
+
         category = config.PROJECT_MAP.get(project_code, config.DEFAULT_CATEGORY)
         status, p1, p2 = process_file(folder_path, filename, category, report_rows)
 
@@ -222,4 +234,3 @@ def main(progress_callback=None, stats_callback=None):
     if stats_callback:
         stats["report_path"] = report_path
         stats_callback(stats)
-
