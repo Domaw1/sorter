@@ -149,6 +149,9 @@ class DistributorApp:
         stats_frame = ttk.LabelFrame(pane, text="Статистика", padding=10)
         pane.add(stats_frame)
 
+        # ← фиксируем минимальную высоту панели статистики
+        pane.paneconfig(stats_frame, minsize=150)
+
         self.stats_text = tk.Text(stats_frame, wrap="word")
         self.stats_text.pack(fill=tk.BOTH, expand=True)
 
