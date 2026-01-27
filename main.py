@@ -7,6 +7,7 @@ import datetime
 import config
 import distribute
 from utils.logger import clear_log_files
+from config import load_default_paths, save_default_paths
 
 
 class TextHandler:
@@ -30,10 +31,14 @@ class DistributorApp:
         self.root = root
         self.root.title("ArchDistributor — Распределение проектных данных")
         self.center_window(900, 700)
-        self.root.minsize(300, 400)
-
+        self.root.minsize(600, 400)
+        self.settings_window = None  # ← ВОТ ЗДЕСЬ
         self.source_folder = tk.StringVar()
         self.target_folder = tk.StringVar()
+        defaults = load_default_paths()
+        self.source_folder.set(defaults.get("source", ""))
+        self.target_folder.set(defaults.get("target", ""))
+
         self.name_pattern = tk.StringVar(value="GPNG-GEP-RD")
         self.is_running = False
         self.total_files = 0
@@ -82,6 +87,18 @@ class DistributorApp:
         browse_btn = ttk.Button(folder_frame, text="Обзор...", command=self._choose_folder)
         browse_btn.grid(row=1, column=1, padx=(5, 0))
         folder_frame.columnconfigure(0, weight=1)
+
+        # === Верхняя панель с кнопками по умолчанию ===
+        top_controls = ttk.Frame(outer)
+        top_controls.pack(fill=tk.X, pady=(5, 0))
+
+        top_controls.columnconfigure(0, weight=1)  # чтобы кнопки ушли вправо
+
+        self.defaults_btn = ttk.Button(top_controls, text="Пути по умолчанию", command=self._apply_default_paths)
+        self.defaults_btn.grid(row=0, column=1, padx=(0, 5), sticky="e")
+
+        self.settings_btn = ttk.Button(top_controls, text="⚙", width=3, command=self._open_settings_window)
+        self.settings_btn.grid(row=0, column=2, padx=(0, 10), sticky="e")
 
         # === Папка назначения ===
         target_frame = ttk.LabelFrame(main, text="Папка назначения", padding=10)
@@ -186,9 +203,67 @@ class DistributorApp:
         canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
         canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
+    def _open_settings_window(self):
+        # Если окно уже открыто — просто поднять его
+        if self.settings_window and self.settings_window.winfo_exists():
+            self.settings_window.lift()
+            self.settings_window.focus_force()
+            return
+
+        # Создаём новое окно
+        win = tk.Toplevel(self.root)
+        self.settings_window = win  # сохраняем ссылку
+
+        win.title("Настройки путей по умолчанию")
+        win.geometry("500x200")
+        win.resizable(False, False)
+
+        # При закрытии — сбрасываем ссылку
+        def on_close():
+            self.settings_window = None
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", on_close)
+
+        cfg = load_default_paths()
+
+        src_var = tk.StringVar(value=cfg.get("source", ""))
+        tgt_var = tk.StringVar(value=cfg.get("target", ""))
+
+        ttk.Label(win, text="Папка с Нераспределёнными данными:").pack(anchor="w", padx=10, pady=(10, 0))
+        src_entry = ttk.Entry(win, textvariable=src_var)
+        src_entry.pack(fill=tk.X, padx=10)
+
+        ttk.Label(win, text="Папка назначения:").pack(anchor="w", padx=10, pady=(10, 0))
+        tgt_entry = ttk.Entry(win, textvariable=tgt_var)
+        tgt_entry.pack(fill=tk.X, padx=10)
+
+        # Включаем Ctrl+V
+        def bind_paste(entry):
+            entry.bind("<Control-v>", lambda e: entry.event_generate("<<Paste>>"))
+            entry.bind("<Control-V>", lambda e: entry.event_generate("<<Paste>>"))
+
+        bind_paste(src_entry)
+        bind_paste(tgt_entry)
+
+        def save_and_close():
+            save_default_paths({"source": src_var.get(), "target": tgt_var.get()})
+            self.status_var.set("Пути по умолчанию сохранены")
+            on_close()
+
+        ttk.Button(win, text="Сохранить", command=save_and_close).pack(pady=15)
+
     def _bind_stats_scroll(self):
         self.root.unbind_all("<MouseWheel>")
         self.stats_text.bind_all("<MouseWheel>", self._stats_mousewheel)
+
+    def _apply_default_paths(self):
+        cfg = load_default_paths()
+        if cfg.get("source"):
+            self.source_folder.set(cfg["source"])
+        if cfg.get("target"):
+            self.target_folder.set(cfg["target"])
+        self.status_var.set("Пути по умолчанию применены")
 
     def _unbind_stats_scroll(self):
         self.stats_text.unbind_all("<MouseWheel>")
