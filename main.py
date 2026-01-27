@@ -52,7 +52,6 @@ class DistributorApp:
         self.root.geometry(f"{width}x{height}+{x}+{y}")
 
     def _build_ui(self):
-        # === Глобальный скроллбар ===
         outer = ttk.Frame(self.root)
         outer.pack(fill=tk.BOTH, expand=True)
 
@@ -67,24 +66,13 @@ class DistributorApp:
 
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        # Фрейм, в котором будет весь UI
         main = ttk.Frame(canvas)
         window_id = canvas.create_window((0, 0), window=main, anchor="nw")
 
-        # Адаптивная ширина
-        def _resize_main(event):
-            canvas.itemconfig(window_id, width=event.width)
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig(window_id, width=e.width))
+        main.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
-        canvas.bind("<Configure>", _resize_main)
-
-        # Авто‑обновление scrollregion
-        def _update_scrollregion(event):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-
-        main.bind("<Configure>", _update_scrollregion)
-
-        # === конец блока ===
-
+        # === Исходные данные ===
         folder_frame = ttk.LabelFrame(main, text="Исходные данные", padding=10)
         folder_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -95,6 +83,7 @@ class DistributorApp:
         browse_btn.grid(row=1, column=1, padx=(5, 0))
         folder_frame.columnconfigure(0, weight=1)
 
+        # === Папка назначения ===
         target_frame = ttk.LabelFrame(main, text="Папка назначения", padding=10)
         target_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -105,6 +94,7 @@ class DistributorApp:
         target_btn.grid(row=1, column=1, padx=(5, 0))
         target_frame.columnconfigure(0, weight=1)
 
+        # === Настройки ===
         settings_frame = ttk.LabelFrame(main, text="Настройки распределения", padding=10)
         settings_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -113,11 +103,15 @@ class DistributorApp:
         pattern_entry.grid(row=1, column=0, sticky="w", pady=(2, 8))
 
         ttk.Label(settings_frame, text="Коды проектов:").grid(row=2, column=0, sticky="w", pady=(5, 0))
-        ttk.Label(settings_frame, text="003 → Ранние работы\n113 → Основной договор", foreground="gray").grid(row=3, column=0, sticky="w")
+        ttk.Label(settings_frame, text="003 → Ранние работы\n113 → Основной договор", foreground="gray").grid(row=3,
+                                                                                                              column=0,
+                                                                                                              sticky="w")
 
         ttk.Label(settings_frame, text="Папки ревизий:").grid(row=0, column=1, sticky="nw", padx=(20, 0))
-        ttk.Label(settings_frame, text="• пдф — PDF файлы\n• ред.формат — DOC, XLSX, XLSM, DWG", foreground="gray").grid(row=1, column=1, rowspan=3, sticky="nw", padx=(20, 0))
+        ttk.Label(settings_frame, text="• пдф — PDF файлы\n• ред.формат — DOC, XLSX, XLSM, DWG",
+                  foreground="gray").grid(row=1, column=1, rowspan=3, sticky="nw", padx=(20, 0))
 
+        # === Кнопки ===
         control_frame = ttk.Frame(main)
         control_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -130,9 +124,11 @@ class DistributorApp:
         self.clear_log_btn = ttk.Button(control_frame, text="Очистить лог", command=self._clear_log)
         self.clear_log_btn.pack(side=tk.LEFT, padx=(5, 0))
 
-        self.save_report_btn = ttk.Button(control_frame, text="Сохранить отчёт", command=self._save_report, state="disabled")
+        self.save_report_btn = ttk.Button(control_frame, text="Сохранить отчёт", command=self._save_report,
+                                          state="disabled")
         self.save_report_btn.pack(side=tk.LEFT, padx=(5, 0))
 
+        # === Прогресс ===
         progress_frame = ttk.LabelFrame(main, text="Прогресс", padding=10)
         progress_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -145,51 +141,45 @@ class DistributorApp:
         self.current_file_label = ttk.Label(progress_frame, text="Текущий файл: —", foreground="gray")
         self.current_file_label.pack(anchor="w", pady=(2, 0))
 
-        # ----
-        pane = ttk.Panedwindow(main, orient="vertical")
+        # === Панель статистики + лог (tk.PanedWindow) ===
+        pane = tk.PanedWindow(main, orient="vertical", sashwidth=10, sashrelief="raised", sashpad=3)
         pane.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
+        # === Статистика (растягиваемая) ===
         stats_frame = ttk.LabelFrame(pane, text="Статистика", padding=10)
-        pane.add(stats_frame, weight=1)
+        pane.add(stats_frame)
 
-        self.stats_text = tk.Text(stats_frame, height=7, wrap="word")
+        self.stats_text = tk.Text(stats_frame, wrap="word")
         self.stats_text.pack(fill=tk.BOTH, expand=True)
 
         self.stats_text.bind("<Enter>", lambda e: self._bind_stats_scroll())
         self.stats_text.bind("<Leave>", lambda e: self._unbind_stats_scroll())
-        # ____
-
-        # запрет ввода
-        # self.stats_text.bind("<Key>", lambda e: "break")
-        # self.stats_text.bind("<Button-3>", lambda e: print("CLICK TEXT"))
-
-        # оформление тега ссылок
         self.stats_text.tag_config("link", foreground="blue", underline=True)
         self.stats_text.bind("<Button-1>", self._on_stats_click)
 
-        log_frame = ttk.LabelFrame(main, text="Лог выполнения", padding=5)
-        log_frame.pack(fill=tk.BOTH, expand=True)
+        # === Лог (фиксированный) ===
+        log_frame = ttk.LabelFrame(pane, text="Лог выполнения", padding=5)
+        pane.add(log_frame)
 
-        self.log_text = tk.Text(log_frame, wrap="word")
+        self.log_text = tk.Text(log_frame, height=12, wrap="word")
         log_scroll = ttk.Scrollbar(log_frame, orient=tk.VERTICAL, command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=log_scroll.set)
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # === Стартовая высота статистики ===
+        self.root.after(10, lambda: pane.sash_place(0, 100, 0))
+
+        # === Статус бар ===
         self.status_var = tk.StringVar(value="Готов к работе")
         status_bar = ttk.Label(outer, textvariable=self.status_var, relief=tk.SUNKEN, anchor="w")
         status_bar.pack(fill=tk.X, side=tk.BOTTOM)
 
         self.text_handler = TextHandler(self.log_text)
 
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        # Windows и MacOS
+        # === Скролл ===
         self.canvas = canvas
         self.root.bind_all("<MouseWheel>", self._global_mousewheel)
-
-        # Linux (если нужно)
         canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
         canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
@@ -396,11 +386,13 @@ class DistributorApp:
                         self.stats_text.insert(tk.END, f"• {label}: {path}\n")
                         end = self.stats_text.index(tk.END)
                         self.stats_text.tag_add("link", start, end)
+                    self.stats_text.insert(tk.END, "\n")  # ← вот эта строка
                 else:
                     start = self.stats_text.index(tk.END)
                     self.stats_text.insert(tk.END, f"• {item}\n")
                     end = self.stats_text.index(tk.END)
                     self.stats_text.tag_add("link", start, end)
+                    self.stats_text.insert(tk.END, "\n")  # ← и здесь тоже
 
     def _progress_callback(self, processed: int, total: int, current_file: str):
         self.root.after(0, self.update_progress, processed, total, current_file)
