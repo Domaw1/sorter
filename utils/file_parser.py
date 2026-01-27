@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from pathlib import Path
 
 
 def extract_with_regex(text, pattern, label):
@@ -25,9 +26,13 @@ def match_pattern(filename, pattern):
     return reg.group() if reg else None
 
 
+# def extract_section_code(filename):
+#     # Ищем 0407.000
+#     return extract_with_regex(filename, r'\d{4}[\. ]\d{3}', "Section code")
+
 def extract_section_code(filename):
-    # Ищем 0407.000
-    return extract_with_regex(filename, r'\d{4}[\. ]\d{3}', "Section code")
+    return extract_with_regex(filename, r'\d{4}[\. \-_]\d{3}', "Section code")
+
 
 def extract_project_code(folder_name):
     parts = folder_name.split("-")
@@ -66,6 +71,13 @@ def extract_subfolder_code(filename):
 
     return None
 
+# def extract_subfolder_code(filename):
+#     # Берём всё до _rXX или до расширения
+#     match = re.match(r'^(.+?)(?=_r\d+|_r[A-Za-zА-Яа-я]+|\.pdf|\.doc|\.docx|\.xls|\.xlsx|\.xlsm|\.dwg)', filename)
+#     if match:
+#         return match.group(1)
+#     return None
+
 
 # def extract_revision(filename):
 #     reg = re.search(r'_r([A-Za-zА-Яа-яЁё0-9]+)', filename)
@@ -101,5 +113,19 @@ def extract_revision(filename):
     return None
 
 
+# def extract_extension_file(filename):
+#     return extract_with_regex(filename, r'\.[A-Za-z0-9]+$', "Extension")
+
 def extract_extension_file(filename):
-    return extract_with_regex(filename, r'\.[A-Za-z0-9]+$', "Extension")
+    return extract_with_regex(filename, r'\.[A-Za-zА-Яа-яЁё0-9]+$', "Extension")
+
+def get_project_folder_name(folder_path: Path):
+    # Если это корневая папка проекта
+    if extract_project_code(folder_path.name):
+        return folder_path.name
+
+    # Если это вложенная папка — берём родителя
+    if extract_project_code(folder_path.parent.name):
+        return folder_path.parent.name
+
+    return None

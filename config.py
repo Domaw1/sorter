@@ -23,7 +23,7 @@ def save_default_paths(data: dict):
     with open(DEFAULT_CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-NAME_PATTERN = "GPNG-GEP-RD"
+NAME_PATTERN = r"GPNG-GEP-RD"
 
 PROJECT_MAP = {
     "003": "Ранние работы",
