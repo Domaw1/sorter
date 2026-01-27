@@ -1,0 +1,5 @@
+Sorter
+Version: 1.0
+Build date: 2026-01-27 11:33:40
+File: Sorter_v1.0_20260127.exe
+Size: 35277449 bytes
