@@ -6,6 +6,22 @@ SOURCE_DIR = BASE_DIR
 TARGET_DIR = None
 LOG_DIR = os.path.join(BASE_DIR, "log")
 
+import json
+
+DEFAULT_CONFIG_PATH = "default_paths.json"
+
+def load_default_paths():
+    if not os.path.exists(DEFAULT_CONFIG_PATH):
+        return {"source": "", "target": ""}
+    try:
+        with open(DEFAULT_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {"source": "", "target": ""}
+
+def save_default_paths(data: dict):
+    with open(DEFAULT_CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 NAME_PATTERN = "GPNG-GEP-RD"
 
