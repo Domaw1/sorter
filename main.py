@@ -358,6 +358,41 @@ class DistributorApp:
         clear_log_files()
         self._log("Лог очищен")
 
+    # def _save_report(self):
+    #     if not hasattr(self, "last_report_path") or not self.last_report_path:
+    #         messagebox.showwarning("Отчёт", "Отчёт ещё не создан.")
+    #         return
+    #
+    #     if not os.path.exists(self.last_report_path):
+    #         messagebox.showerror("Ошибка", "Файл отчёта не найден.")
+    #         return
+    #
+    #     file_path = filedialog.asksaveasfilename(
+    #         defaultextension=".xlsx",
+    #         filetypes=[("Excel", "*.xlsx"), ("CSV", "*.csv"), ("Все файлы", "*.*")]
+    #     )
+    #
+    #     if not file_path:
+    #         return
+    #
+    #     try:
+    #         # Если пользователь выбрал .xlsx — конвертируем CSV → XLSX
+    #         if file_path.lower().endswith(".xlsx"):
+    #             import pandas as pd
+    #             df = pd.read_csv(self.last_report_path, sep=";", encoding="utf-8-sig")
+    #             df.to_excel(file_path, index=False)
+    #         else:
+    #             # Иначе просто копируем CSV
+    #             import shutil
+    #             shutil.copy2(self.last_report_path, file_path)
+    #
+    #         self._log(f"Отчёт сохранён в: {file_path}")
+    #         messagebox.showinfo("Отчёт", f"Отчёт сохранён в:\n{file_path}")
+    #
+    #     except Exception as e:
+    #         messagebox.showerror("Ошибка", f"Ошибка при сохранении отчёта:\n{e}")
+    #         self._log(f"Ошибка при сохранении отчёта: {e}")
+
     def _save_report(self):
         if not hasattr(self, "last_report_path") or not self.last_report_path:
             messagebox.showwarning("Отчёт", "Отчёт ещё не создан.")
@@ -369,22 +404,16 @@ class DistributorApp:
 
         file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
-            filetypes=[("Excel", "*.xlsx"), ("CSV", "*.csv"), ("Все файлы", "*.*")]
+            filetypes=[("Excel", "*.xlsx"), ("Все файлы", "*.*")]
         )
 
         if not file_path:
             return
 
         try:
-            # Если пользователь выбрал .xlsx — конвертируем CSV → XLSX
-            if file_path.lower().endswith(".xlsx"):
-                import pandas as pd
-                df = pd.read_csv(self.last_report_path, sep=";", encoding="utf-8-sig")
-                df.to_excel(file_path, index=False)
-            else:
-                # Иначе просто копируем CSV
-                import shutil
-                shutil.copy2(self.last_report_path, file_path)
+            # Просто копируем готовый XLSX
+            import shutil
+            shutil.copy2(self.last_report_path, file_path)
 
             self._log(f"Отчёт сохранён в: {file_path}")
             messagebox.showinfo("Отчёт", f"Отчёт сохранён в:\n{file_path}")
@@ -455,7 +484,7 @@ class DistributorApp:
         lines = [
             f"Файлов обработано: {stats.get('processed', 0)}",
             f"Скопировано: {stats.get('copied', 0)}",
-            f"Пропущено (не по шаблону: {config.NAME_PATTERN}): {stats.get('skipped_pattern', 0)}",
+            f"Не было скопировано (не соответствует шаблону имени): {stats.get('skipped_pattern', 0)}",
             f"Дубликатов: {stats.get('duplicates', 0)}",
             f"Конфликтов имён: {stats.get('conflicts', 0)}",
             f"Ошибок: {stats.get('errors', 0)}",
