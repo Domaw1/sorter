@@ -30,6 +30,11 @@ class DistributorApp:
         self.last_report_path = None
         self.root = root
         self.root.title("ArchDistributor — Распределение проектных данных")
+
+        # Глобальный Ctrl+V для всех Entry
+        self.root.bind_class("Entry", "<Control-v>", lambda e: e.widget.event_generate("<<Paste>>"))
+        self.root.bind_class("Entry", "<Control-V>", lambda e: e.widget.event_generate("<<Paste>>"))
+
         self.center_window(900, 700)
         self.root.minsize(600, 400)
         self.settings_window = None  # ← ВОТ ЗДЕСЬ
@@ -210,13 +215,26 @@ class DistributorApp:
             self.settings_window.focus_force()
             return
 
-        # Создаём новое окно
+        # Создаём окно
         win = tk.Toplevel(self.root)
-        self.settings_window = win  # сохраняем ссылку
-
+        self.settings_window = win
         win.title("Настройки путей по умолчанию")
-        win.geometry("500x200")
         win.resizable(False, False)
+
+        # Центрирование окна относительно родителя
+        def center_child(win, width, height):
+            self.root.update_idletasks()
+            parent_x = self.root.winfo_x()
+            parent_y = self.root.winfo_y()
+            parent_w = self.root.winfo_width()
+            parent_h = self.root.winfo_height()
+
+            x = parent_x + (parent_w - width) // 2
+            y = parent_y + (parent_h - height) // 2
+
+            win.geometry(f"{width}x{height}+{x}+{y}")
+
+        center_child(win, 500, 160)
 
         # При закрытии — сбрасываем ссылку
         def on_close():
@@ -225,11 +243,12 @@ class DistributorApp:
 
         win.protocol("WM_DELETE_WINDOW", on_close)
 
+        # Загружаем текущие пути
         cfg = load_default_paths()
-
         src_var = tk.StringVar(value=cfg.get("source", ""))
         tgt_var = tk.StringVar(value=cfg.get("target", ""))
 
+        # UI
         ttk.Label(win, text="Папка с Нераспределёнными данными:").pack(anchor="w", padx=10, pady=(10, 0))
         src_entry = ttk.Entry(win, textvariable=src_var)
         src_entry.pack(fill=tk.X, padx=10)
@@ -238,14 +257,7 @@ class DistributorApp:
         tgt_entry = ttk.Entry(win, textvariable=tgt_var)
         tgt_entry.pack(fill=tk.X, padx=10)
 
-        # Включаем Ctrl+V
-        def bind_paste(entry):
-            entry.bind("<Control-v>", lambda e: entry.event_generate("<<Paste>>"))
-            entry.bind("<Control-V>", lambda e: entry.event_generate("<<Paste>>"))
-
-        bind_paste(src_entry)
-        bind_paste(tgt_entry)
-
+        # Кнопка сохранения
         def save_and_close():
             save_default_paths({"source": src_var.get(), "target": tgt_var.get()})
             self.status_var.set("Пути по умолчанию сохранены")
