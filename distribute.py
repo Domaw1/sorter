@@ -3,6 +3,9 @@ import shutil
 import logging
 from datetime import datetime
 from pathlib import Path
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
+from openpyxl.utils import get_column_letter
 
 from utils.file_parser import (
     extract_project_code,
@@ -33,29 +36,205 @@ def build_target_path(category, section, subfolder, revision, file_type):
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
 
-def write_report_(rows, filename):
-    report_path = os.path.join("reports", filename)
-    os.makedirs("reports", exist_ok=True)
+# def write_report_xlsx(rows, filename):
+#     os.makedirs("reports", exist_ok=True)
+#     report_path = os.path.join("reports", filename)
+#
+#     wb = Workbook()
+#     ws = wb.active
+#     ws.title = "Отчёт"
+#
+#     headers = [
+#         "Имя файла",
+#         "Исходный путь",
+#         "Конечный путь",
+#         "Категория",
+#         "Раздел",
+#         "Подпапка",
+#         "Ревизия",
+#         "Тип файла",
+#         "CRC",
+#         "Статус",
+#         "Пропущенный файл"
+#     ]
+#
+#     # Записываем заголовки
+#     for col, header in enumerate(headers, start=1):
+#         cell = ws.cell(row=1, column=col, value=header)
+#         cell.font = Font(bold=True)
+#         cell.alignment = Alignment(horizontal="center")
+#
+#     # Записываем строки
+#     for row_idx, row in enumerate(rows, start=2):
+#         for col_idx, value in enumerate(row, start=1):
+#             ws.cell(row=row_idx, column=col_idx, value=value)
+#
+#     # Фиксированная ширина столбцов
+#     column_widths = {
+#         1: 70,   # Имя файла
+#         2: 135,   # Исходный путь
+#         3: 155,   # Конечный путь
+#         4: 15,   # Категория
+#         5: 10,   # Раздел
+#         6: 40,   # Подпапка
+#         7: 10,   # Ревизия
+#         8: 15,   # Тип файла
+#         9: 15,   # CRC
+#         10: 50,  # Статус
+#         11: 40 # Пропущенный файл
+#     }
+#
+#     for col_idx, width in column_widths.items():
+#         ws.column_dimensions[get_column_letter(col_idx)].width = width
+#
+#     wb.save(report_path)
+#     return report_path
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
+import os
 
-    headers = [
-        "Имя файла",
-        "Исходный путь",
-        "Конечный путь",
-        "Категория",
-        "Раздел",
-        "Подпапка",
-        "Ревизия",
-        "Тип файла",
-        "CRC",
-        "Статус"
+def write_report_xlsx(processed_rows, skipped_rows, filename):
+
+    os.makedirs("reports", exist_ok=True)
+    report_path = os.path.join("reports", filename)
+
+    wb = Workbook()
+
+    # === Лист 1: Обработанные ===
+    # === Лист 1: Обработанные ===
+    ws_main = wb.active
+    ws_main.title = "Обработанные файлы"
+
+    headers_main = [
+        "Имя файла", "Исходный путь", "Конечный путь", "Категория",
+        "Раздел", "Подпапка", "Ревизия", "Тип файла", "CRC", "Статус"
     ]
 
-    with open(report_path, "w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.writer(f, delimiter=";")
-        writer.writerow(headers)
-        writer.writerows(rows)
+    for col, header in enumerate(headers_main, start=1):
+        cell = ws_main.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
 
+    # === Лист 2: Пропущенные ===
+    ws_skipped = wb.create_sheet(title="Пропущенные файлы")
+
+    headers_skipped = ["Имя файла", "Исходный путь", "Причина пропуска"]
+    for col, header in enumerate(headers_skipped, start=1):
+        cell = ws_skipped.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    # === Заполнение
+    row_main = 2
+    row_skipped = 2
+
+    # for row in rows:
+    #     status = row[9]
+    #     if status == "Не было скопировано" or "не соответствует шаблону" in status.lower():
+    #         # Пропущенные
+    #         ws_skipped.cell(row=row_skipped, column=1, value=row[0])  # Имя файла
+    #         ws_skipped.cell(row=row_skipped, column=2, value=row[1])  # Исходный путь
+    #         ws_skipped.cell(row=row_skipped, column=3, value=status)  # Причина
+    #         row_skipped += 1
+    # for row in processed_rows:
+    #     for col_idx in range(10):
+    #         ws_main.cell(row=row_main, column=col_idx + 1, value=row[col_idx])
+    #     row_main += 1
+    #
+    # for row in skipped_rows:
+    #     for col_idx in range(3):
+    #         ws_skipped.cell(row=row_skipped, column=col_idx + 1, value=row[col_idx])
+    #     row_skipped += 1
+    # else:
+    #         # Обработанные
+    #     for col_idx in range(10):
+    #         ws_main.cell(row=row_main, column=col_idx + 1, value=row[col_idx])
+    #     row_main += 1
+    groups = {
+        "Скопировано": [],
+        "Дубликат (не копировался)": [],
+        "Конфликт имён": []
+    }
+
+    # === Заполнение обработанных файлов с группировкой ===
+
+    groups = {
+        "Успешно скопировано": [],
+        "В конечных папках уже есть данные файлы (дубликаты)": [],
+        "Конфликты имён": []
+    }
+
+    for row in processed_rows:
+        status = row[9]
+
+        if "Скопировано" in status:
+            groups["Успешно скопировано"].append(row)
+
+        elif "Дубликат" in status:
+            groups["В конечных папках уже есть данные файлы (дубликаты)"].append(row)
+
+        elif "Конфликт" in status:
+            groups["Конфликты имён"].append(row)
+
+        else:
+            groups.setdefault("Прочее", []).append(row)
+
+    row_main = 2
+
+    for group_name, group_rows in groups.items():
+        # Заголовок группы
+        cell = ws_main.cell(row=row_main, column=1, value=group_name + ":")
+        cell.font = Font(bold=True)
+        row_main += 1
+
+        # Строки группы
+        for row in group_rows:
+            for col_idx in range(10):
+                ws_main.cell(row=row_main, column=col_idx + 1, value=row[col_idx])
+            row_main += 1
+
+        # Пустая строка между группами
+        row_main += 1
+
+    # === Ширина столбцов
+    widths_main = [70, 135, 155, 15, 10, 40, 10, 15, 15, 40]
+    for i, w in enumerate(widths_main, start=1):
+        ws_main.column_dimensions[get_column_letter(i)].width = w
+
+    widths_skipped = [40, 60, 40]
+    for i, w in enumerate(widths_skipped, start=1):
+        ws_skipped.column_dimensions[get_column_letter(i)].width = w
+
+    wb.save(report_path)
     return report_path
+
+
+# def write_report_(rows, filename):
+#     report_path = os.path.join("reports", filename)
+#     os.makedirs("reports", exist_ok=True)
+#
+#     headers = [
+#         "Имя файла",
+#         "Исходный путь",
+#         "Конечный путь",
+#         "Категория",
+#         "Раздел",
+#         "Подпапка",
+#         "Ревизия",
+#         "Тип файла",
+#         "CRC",
+#         "Статус"
+#     ]
+#
+#     with open(report_path, "w", encoding="utf-8-sig", newline="") as f:
+#         writer = csv.writer(f, delimiter=";")
+#         f.write('\ufeff')  # BOM уже есть, но можно оставить
+#         f.write('# AUTOFIT_COLUMNS\n')
+#         writer.writerow(headers)
+#         writer.writerows(rows)
+#
+#     return report_path
 
 def handle_duplicates(dst_file, src_file):
     src_crc = crc32_of_file(src_file)
@@ -70,12 +249,23 @@ def handle_duplicates(dst_file, src_file):
     return "conflict", src_crc, dst_crc, dst_file, new_dst
 
 
-def process_file(folder_path, filename, category, report_rows):
+def process_file(folder_path, filename, category, report_rows, skipped_rows):
     src_file = os.path.join(folder_path, filename)
 
     # 1. Проверка шаблона
+    # if not match_pattern(filename, config.NAME_PATTERN):
+    #     logging.info(f"Пропуск: {filename} — не соответствует шаблону")
+    #     return "skipped_pattern", filename, None
+
     if not match_pattern(filename, config.NAME_PATTERN):
         logging.info(f"Пропуск: {filename} — не соответствует шаблону")
+
+        skipped_rows.append([
+            filename,
+            src_file,
+            "Не соответствует шаблону имени"
+        ])
+
         return "skipped_pattern", filename, None
 
     # 2. Разбор имени
@@ -146,7 +336,8 @@ def process_file(folder_path, filename, category, report_rows):
         revision,
         file_type,
         src_crc,
-        status
+        config.STATUS_LABELS.get(status, status),
+        ""
     ])
 
     if status == "conflict":
@@ -166,6 +357,7 @@ def collect_all_files(root_folder):
 def main(progress_callback=None, stats_callback=None):
     setup_logger()
     report_rows = []
+    skipped_rows = []
 
     stats = {
         "processed": 0,
@@ -214,7 +406,8 @@ def main(progress_callback=None, stats_callback=None):
             continue
 
         category = config.PROJECT_MAP.get(project_code, config.DEFAULT_CATEGORY)
-        status, p1, p2 = process_file(folder_path, filename, category, report_rows)
+        # status, p1, p2 = process_file(folder_path, filename, category, report_rows)
+        status, p1, p2 = process_file(folder_path, filename, category, report_rows, skipped_rows)
 
         stats["processed"] += 1
 
@@ -236,8 +429,11 @@ def main(progress_callback=None, stats_callback=None):
             progress_callback(processed, total_files, filename)
 
     # Отчёт
-    report_name = f"report_{datetime.now():%Y-%m-%d}.csv"
-    report_path = write_report_(report_rows, report_name)
+    report_name = f"report_{datetime.now():%Y-%m-%d}.xlsx"
+    logging.info(f"Сохраняем отчёт: {report_name}")
+
+    # report_path = write_report_(report_rows, report_name)
+    report_path = write_report_xlsx(report_rows, skipped_rows, report_name)
 
     if stats_callback:
         stats["report_path"] = report_path
