@@ -33,7 +33,7 @@ def build_exe():
     # Параметры PyInstaller
     build_params = [
         "main.py",
-        "--onefile",
+        # "--onefile",
         "--windowed",
         f"--name={APP_NAME}",
         "--clean",
@@ -41,15 +41,18 @@ def build_exe():
 
         # Включаем ресурсы
         "--add-data=utils;utils",
-        "--add-data=reports;reports",
-        "--add-data=config.py;.",
+        "--add-data=Icon.ico;.",
+        # "--add-data=reports;reports",
+        # "--add-data=config.py;.",
 
         # Скрытые импорты (если нужны)
         "--hidden-import=openpyxl",
-        "--hidden-import=openpyxl.styles",
-        "--hidden-import=openpyxl.workbook",
-        "--hidden-import=dateutil",
-        "--hidden-import=pytz",
+        # "--hidden-import=openpyxl.styles",
+        # "--hidden-import=openpyxl.workbook",
+        # "--hidden-import=dateutil",
+        # "--hidden-import=pytz",
+        "--noupx"
+
     ]
 
     # Иконка
@@ -70,14 +73,21 @@ def build_exe():
         PyInstaller.__main__.run(build_params)
 
         # Путь к собранному exe
-        source_exe = Path("dist") / f"{APP_NAME}.exe"
+        # source_exe = Path("dist") / f"{APP_NAME}.exe"
+
+        source_exe = Path("dist") / APP_NAME / f"{APP_NAME}.exe"
 
         if source_exe.exists():
             current_date = datetime.now().strftime("%Y%m%d")
-            final_name = f"{APP_NAME}_{current_date}.exe"
-            final_path = releases_dir / final_name
+            # final_name = f"{APP_NAME}_{current_date}.exe"
+            # final_name = f"{APP_NAME}.exe"
+            # final_path = releases_dir / final_name
+            target_dir = releases_dir / APP_NAME
 
-            shutil.copy2(source_exe, final_path)
+            # shutil.copy2(source_exe, final_path)
+            shutil.copytree(Path("dist") / APP_NAME, target_dir, dirs_exist_ok=True)
+
+            final_path = target_dir / f"{APP_NAME}.exe"
 
             print("\n🎉 СБОРКА УСПЕШНО ЗАВЕРШЕНА!")
             print("=" * 60)
@@ -85,13 +95,18 @@ def build_exe():
             print(f"📁 Финальный EXE: {final_path.absolute()}")
             print(f"📏 Размер: {final_path.stat().st_size / (1024 * 1024):.2f} MB")
 
+            info_file = releases_dir / f"build_info_{APP_VERSION}_{current_date}.txt"
+            exe_name = f"{APP_NAME}.exe"
+
             # Файл информации
             info_file = releases_dir / f"build_info_{APP_VERSION}_{current_date}.txt"
             with open(info_file, "w", encoding="utf-8") as f:
                 f.write("Sorter\n")
                 f.write(f"Version: {APP_VERSION}\n")
                 f.write(f"Build date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"File: {final_name}\n")
+                # f.write(f"File: {final_name}\n")
+                # f.write(f"Size: {final_path.stat().st_size} bytes\n")
+                f.write(f"File: {exe_name}\n")
                 f.write(f"Size: {final_path.stat().st_size} bytes\n")
 
             print(f"📄 Создан файл информации: {info_file.name}")
