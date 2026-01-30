@@ -196,6 +196,14 @@ def write_report_xlsx(processed_rows, skipped_rows, filename):
 
         # Пустая строка между группами
         row_main += 1
+        # === Заполнение листа "Пропущенные файлы" ===
+        row_skipped = 2
+
+        for row in skipped_rows:
+            ws_skipped.cell(row=row_skipped, column=1, value=row[0])  # Имя файла
+            ws_skipped.cell(row=row_skipped, column=2, value=row[1])  # Исходный путь
+            ws_skipped.cell(row=row_skipped, column=3, value=row[2])  # Причина пропуска
+            row_skipped += 1
 
     # === Ширина столбцов
     widths_main = [70, 135, 155, 15, 10, 40, 10, 15, 15, 40]

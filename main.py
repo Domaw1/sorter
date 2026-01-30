@@ -8,6 +8,13 @@ import config
 import distribute
 from utils.logger import clear_log_files
 from config import load_default_paths, save_default_paths
+import sys
+
+def resource_path(relative_path):
+    """Возвращает путь к ресурсу внутри EXE или рядом с .py"""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
 
 
 class TextHandler:
@@ -544,8 +551,8 @@ class DistributorApp:
 
 def main():
     root = tk.Tk()
-    root.iconbitmap("Icon.ico")
-
+    # root.iconbitmap("Icon.ico")
+    root.iconbitmap(resource_path("Icon.ico"))
     app = DistributorApp(root)
     root.mainloop()
 
