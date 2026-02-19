@@ -3,6 +3,14 @@ import os
 import re
 from pathlib import Path
 
+def normalize_revision(rev: str) -> str:
+    mapping = {
+        "А": "A", "В": "B", "Е": "E", "К": "K",
+        "М": "M", "Н": "H", "О": "O", "Р": "P",
+        "С": "C", "Т": "T", "У": "Y", "Х": "X",
+    }
+    return "".join(mapping.get(ch, ch) for ch in rev)
+
 
 def extract_with_regex(text, pattern, label):
     reg = re.search(pattern, text)
@@ -100,17 +108,24 @@ def extract_revision(filename):
     name, _ = os.path.splitext(filename)
 
     # Ищем rXX с любым разделителем, но захватываем только саму ревизию
-    match = re.search(r'[_\-\.\s]r[_\-\.\s]?([A-Za-zА-Яа-яЁё0-9]{1,3})(?=[_\-\.\s]|$)', name)
+    match = re.search(r'[_\-\.\s]r[_\-\.\s]?([A-Za-zА-Яа-яЁё0-9]{1,3}|VOID)(?=[_\-\.\s]|$)', name)
     if match:
-        return match.group(1)
+        raw_rev = match.group(1)
+        norm_rev = normalize_revision(raw_rev)
+        return raw_rev, norm_rev
+    # match = re.search(r'[_\-\.\s]r[_\-\.\s]?(VOID|[A-Za-zА-Яа-яЁё0-9]{1,3})(?=[_\-\.\s]|$)', name, re.IGNORECASE)
+    # if match:
+    #     return match.group(1)
 
     # Альтернатива: Рев. XX
-    match = re.search(r'Рев[.\s_-]+([A-Za-zА-Яа-яЁё0-9]{1,3})(?=[_\-\.\s]|$)', name)
+    match = re.search(r'Рев[.\s_-]+([A-Za-zА-Яа-яЁё0-9]{1,3}|VOID)(?=[_\-\.\s]|$)', name)
     if match:
-        return match.group(1)
+        raw_rev = match.group(1)
+        norm_rev = normalize_revision(raw_rev)
+        return raw_rev, norm_rev
 
     logging.warning(f"Revision not found in: {filename}")
-    return None
+    return None, None
 
 
 # def extract_extension_file(filename):

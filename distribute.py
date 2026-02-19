@@ -108,7 +108,7 @@ def write_report_xlsx(processed_rows, skipped_rows, filename):
 
     headers_main = [
         "Имя файла", "Исходный путь", "Конечный путь", "Категория",
-        "Раздел", "Подпапка", "Ревизия", "Тип файла", "CRC", "Статус"
+        "Раздел", "Подпапка","Исходная ревизия", "Исправленная ревизия", "Тип файла", "CRC", "Статус"
     ]
 
     for col, header in enumerate(headers_main, start=1):
@@ -166,7 +166,7 @@ def write_report_xlsx(processed_rows, skipped_rows, filename):
     }
 
     for row in processed_rows:
-        status = row[9]
+        status = row[10]
 
         if "Скопировано" in status:
             groups["Успешно скопировано"].append(row)
@@ -190,7 +190,7 @@ def write_report_xlsx(processed_rows, skipped_rows, filename):
 
         # Строки группы
         for row in group_rows:
-            for col_idx in range(10):
+            for col_idx in range(len(row)):
                 ws_main.cell(row=row_main, column=col_idx + 1, value=row[col_idx])
             row_main += 1
 
@@ -206,7 +206,7 @@ def write_report_xlsx(processed_rows, skipped_rows, filename):
             row_skipped += 1
 
     # === Ширина столбцов
-    widths_main = [70, 135, 155, 15, 10, 40, 10, 15, 15, 40]
+    widths_main = [70, 135, 155, 15, 10, 40, 12, 12, 15, 15, 40]
     for i, w in enumerate(widths_main, start=1):
         ws_main.column_dimensions[get_column_letter(i)].width = w
 
@@ -256,7 +256,6 @@ def handle_duplicates(dst_file, src_file):
     logging.error("Name conflict: " + new_dst)
     return "conflict", src_crc, dst_crc, dst_file, new_dst
 
-
 def process_file(folder_path, filename, category, report_rows, skipped_rows):
     src_file = os.path.join(folder_path, filename)
 
@@ -274,35 +273,36 @@ def process_file(folder_path, filename, category, report_rows, skipped_rows):
             "Не соответствует шаблону имени"
         ])
 
-        return "skipped_pattern", filename, None
+        return "skipped_pattern", filename, None, None, None, False
 
     # 2. Разбор имени
     section = extract_section_code(filename)
     subfolder = extract_subfolder_code(filename)
-    revision = extract_revision(filename)
+    raw_revision, revision = extract_revision(filename)
+    fixed = raw_revision and revision and raw_revision != revision
     ext = extract_extension_file(filename)
 
     if section is None:
         logging.error(f"Пропуск: {filename} — раздел не найден")
-        return "error", filename, None
+        return "error", filename, None, None, None, False
 
     if subfolder is None:
         logging.error(f"Пропуск: {filename} — подпапка не найдена")
-        return "error", filename, None
+        return "error", filename, None, None, None, False
 
     if ext is None:
         logging.error(f"Пропуск: {filename} — расширение не найдено")
-        return "error", filename, None
+        return "error", filename, None, None, None, False
 
     ext = ext.lower()
     if ext in config.BLACK_LIST_EXTENSIONS:
         logging.warning(f"Пропуск: {filename} — недопустимое расширение {ext}")
-        return "warning", filename, None
+        return "warning", filename, None, None, None, False
 
     file_type = config.FILE_TYPE_MAP.get(ext, "ред.формат")
     if not file_type:
         logging.warning(f"Пропуск: {filename} — неизвестный тип файла")
-        return "warning", filename, None
+        return "warning", filename, None, None, None, False
 
     # 3. Построение пути
     target_dir = build_target_path(category, section, subfolder, revision, file_type)
@@ -341,6 +341,7 @@ def process_file(folder_path, filename, category, report_rows, skipped_rows):
         category,
         section,
         subfolder,
+        raw_revision if raw_revision != revision else "",
         revision,
         file_type,
         src_crc,
@@ -349,9 +350,9 @@ def process_file(folder_path, filename, category, report_rows, skipped_rows):
     ])
 
     if status == "conflict":
-        return status, old_dst, new_dst
+        return status, old_dst, new_dst, raw_revision, revision, fixed
     else:
-        return status, dst_file, None
+        return status, dst_file, None, raw_revision, revision, fixed
 
 def collect_all_files(root_folder):
     for dirpath, _, filenames in os.walk(root_folder):
@@ -415,9 +416,16 @@ def main(progress_callback=None, stats_callback=None):
 
         category = config.PROJECT_MAP.get(project_code, config.DEFAULT_CATEGORY)
         # status, p1, p2 = process_file(folder_path, filename, category, report_rows)
-        status, p1, p2 = process_file(folder_path, filename, category, report_rows, skipped_rows)
+        status, p1, p2, raw_revision, revision, fixed = process_file(folder_path, filename, category, report_rows, skipped_rows)
 
         stats["processed"] += 1
+
+        if fixed:
+            stats.setdefault("fixed_revisions", []).append({
+                "file": filename,
+                "raw": raw_revision,
+                "normalized": revision
+            })
 
         if status == "error":
             stats["errors"] += 1

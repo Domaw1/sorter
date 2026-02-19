@@ -132,7 +132,7 @@ class DistributorApp:
         pattern_entry.grid(row=1, column=0, sticky="w", pady=(2, 8))
 
         ttk.Label(settings_frame, text="Коды проектов:").grid(row=2, column=0, sticky="w", pady=(5, 0))
-        ttk.Label(settings_frame, text="003 → Ранние работы\n113 → Основной договор", foreground="gray").grid(row=3,
+        ttk.Label(settings_frame, text="003 → Ранние работы\n113 → РД Основной договор", foreground="gray").grid(row=3,
                                                                                                               column=0,
                                                                                                               sticky="w")
 
@@ -519,6 +519,16 @@ class DistributorApp:
                     end = self.stats_text.index(tk.END)
                     self.stats_text.tag_add("link", start, end)
                     self.stats_text.insert(tk.END, "\n")  # ← и здесь тоже
+
+        fixed = stats.get("fixed_revisions", [])
+
+        if fixed:
+            self.stats_text.insert(tk.END, "\nИсправленные ревизии:\n")
+            for item in fixed:
+                file = item.get("file")
+                raw = item.get("raw")
+                norm = item.get("normalized")
+                self.stats_text.insert(tk.END, f"• {file}: {raw} → {norm}\n")
 
     def _progress_callback(self, processed: int, total: int, current_file: str):
         self.root.after(0, self.update_progress, processed, total, current_file)

@@ -27,7 +27,7 @@ NAME_PATTERN = r"GPNG-GEP-RD"
 
 PROJECT_MAP = {
     "003": "Ранние работы",
-    "113": "Основной договор",
+    "113": "РД Основной договор",
 }
 
 ALLOWED_EXTENSIONS = {
